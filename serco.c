@@ -20,9 +20,15 @@ static ssize_t serco_write(struct file *filp, const char __user *buf,
     return count;
 }
 
+static int serco_open(struct inode *inode, struct file *filp)
+{
+    return 0;
+}
+
 static const struct file_operations fops = {
     .owner = THIS_MODULE,
     .write = serco_write,
+    .open = serco_open,
 };
 
 static int __init serco_init(void)
