@@ -4,6 +4,8 @@
 #include <linux/cdev.h>
 #include <linux/console.h>
 #include <linux/string.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
 
 #define FIRST_MINOR 0
 #define NUM_MINORS 1
@@ -15,20 +17,36 @@ static struct console *cons;
 static ssize_t serco_write(struct file *filp, const char __user *buf,
         size_t count, loff_t *pos)
 {
-    cons->write(cons, buf, count);
+    char *dest;
+
+    dest = kmalloc(count+1, GFP_KERNEL);
+    if (!dest) {
+        pr_err("No memory available to allocate %zu bytes\n", count);
+        return -ENOMEM;
+    }
+
+    if (copy_from_user(dest, buf, count)) {
+        kfree(dest);
+        pr_err("copy_from_user cannot copy all bytes\n");
+        return -EPERM;
+    }
+
+    if (cons) {
+        cons->write(cons, dest, count);
+    } else {
+        dest[count] = '\0';
+        pr_info("%s\n", dest);
+    }
+
+    kfree(dest);
+
     *pos += count;
     return count;
-}
-
-static int serco_open(struct inode *inode, struct file *filp)
-{
-    return 0;
 }
 
 static const struct file_operations fops = {
     .owner = THIS_MODULE,
     .write = serco_write,
-    .open = serco_open,
 };
 
 static int __init serco_init(void)
@@ -40,10 +58,8 @@ static int __init serco_init(void)
         if (strstarts(cons->name, "ttyS"))
             break;
 
-    if (!cons) {
-        pr_err("Could not find a serial console\n");
-        return -ENODEV;
-    }
+    if (!cons)
+        pr_warn("Could not find a serial console\n");
 
     err = alloc_chrdev_region(&dev, FIRST_MINOR, NUM_MINORS, "serco");
     if (err < 0) {
