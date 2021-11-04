@@ -2,11 +2,12 @@
 
 drivername=serco
 devicename=serco
+devpath=/dev
 
 rmmod $drivername || true
 insmod $drivername.ko
-rm -f /tmp/$devicename
+rm -f $devpath/$devicename
 
 major=$(cat /proc/devices | grep $devicename | awk '{print $1}')
-mknod /tmp/$devicename c $major 0 
-chmod a+rw /tmp/$devicename
+mknod $devpath/$devicename c $major 0 
+chmod a+rw $devpath/$devicename
