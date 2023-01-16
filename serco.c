@@ -44,9 +44,16 @@ static ssize_t serco_write(struct file *filp, const char __user *buf,
     return count;
 }
 
+static int serco_open(struct inode *inode, struct file *filp)
+{
+    return nonseekable_open(inode, filp);
+}
+
 static const struct file_operations fops = {
     .owner = THIS_MODULE,
     .write = serco_write,
+    .llseek = no_llseek,
+    .open = serco_open,
 };
 
 static int __init serco_init(void)
