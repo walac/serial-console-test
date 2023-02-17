@@ -3,7 +3,8 @@ compile_commands.json
 *.ko
 *.mod.c
 *.o
-.*.cmd
+*.cmd
+*.mod
 .tmp_versions/
 *.symvers
 sertest
