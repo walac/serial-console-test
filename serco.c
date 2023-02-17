@@ -6,12 +6,8 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/miscdevice.h>
 
-#define FIRST_MINOR 0
-#define NUM_MINORS 1
-
-static dev_t dev;
-static struct cdev cdev;
 static struct console *cons;
 
 static ssize_t serco_write(struct file *filp, const char __user *buf,
@@ -49,17 +45,22 @@ static int serco_open(struct inode *inode, struct file *filp)
     return nonseekable_open(inode, filp);
 }
 
-static const struct file_operations fops = {
+static const struct file_operations serco_fops = {
     .owner = THIS_MODULE,
     .write = serco_write,
     .llseek = no_llseek,
     .open = serco_open,
 };
 
+static struct miscdevice serco_miscdev = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "serco",
+	.mode = 0666,
+	.fops = &serco_fops,
+};
+
 static int __init serco_init(void)
 {
-    int err;
-
     /* look for the serial console driver */
     for_each_console(cons)
         if (strstarts(cons->name, "ttyS"))
@@ -68,28 +69,12 @@ static int __init serco_init(void)
     if (!cons)
         pr_warn("Could not find a serial console\n");
 
-    err = alloc_chrdev_region(&dev, FIRST_MINOR, NUM_MINORS, "serco");
-    if (err < 0) {
-        pr_err("Could not allocate a device region: %d\n", err);
-        return err;
-    }
-
-    cdev_init(&cdev, &fops);
-    cdev.owner = THIS_MODULE;
-    err = cdev_add(&cdev, dev, NUM_MINORS);
-    if (err < 0) {
-        unregister_chrdev_region(dev, NUM_MINORS);
-        pr_err("Unable to add cdev: %d\n", err);
-        return err;
-    }
-
-    return 0;
+    return misc_register(&serco_miscdev);
 }
 
 static void __exit serco_exit(void)
 {
-    cdev_del(&cdev);
-    unregister_chrdev_region(dev, NUM_MINORS);
+	misc_deregister(&serco_miscdev);
 }
 
 module_init(serco_init);
