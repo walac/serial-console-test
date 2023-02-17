@@ -1,3 +1,4 @@
+#define pr_fmt(fmt) "%s: " fmt, KBUILD_MODNAME
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/device.h>
