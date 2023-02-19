@@ -55,7 +55,7 @@ static const struct file_operations serco_fops = {
 
 static struct miscdevice serco_miscdev = {
 	.minor = MISC_DYNAMIC_MINOR,
-	.name = "serco",
+	.name = KBUILD_MODNAME,
 	.mode = 0666,
 	.fops = &serco_fops,
 };
