@@ -12,34 +12,7 @@
 static struct console *cons;
 
 static ssize_t serco_write(struct file *filp, const char __user *buf,
-			   size_t count, loff_t *pos)
-{
-	char *dest;
-
-	dest = kmalloc(count+1, GFP_KERNEL);
-	if (!dest) {
-		pr_err("No memory available to allocate %zu bytes\n", count);
-		return -ENOMEM;
-	}
-
-	if (copy_from_user(dest, buf, count)) {
-		kfree(dest);
-		pr_err("copy_from_user cannot copy all bytes\n");
-		return -EPERM;
-	}
-
-	if (cons) {
-		cons->write(cons, dest, count);
-	} else {
-		dest[count] = '\0';
-		pr_info("%s\n", dest);
-	}
-
-	kfree(dest);
-
-	*pos += count;
-	return count;
-}
+			   size_t count, loff_t *pos);
 
 static int serco_open(struct inode *inode, struct file *filp)
 {
@@ -60,17 +33,53 @@ static struct miscdevice serco_miscdev = {
 	.fops = &serco_fops,
 };
 
+static ssize_t serco_write(struct file *filp, const char __user *buf,
+			   size_t count, loff_t *pos)
+{
+	char *dest;
+	struct device *dev = serco_miscdev.this_device;
+
+	dest = kmalloc(count+1, GFP_KERNEL);
+	if (!dest)
+		return -ENOMEM;
+
+	if (copy_from_user(dest, buf, count)) {
+		kfree(dest);
+		dev_dbg(dev, "copy_from_user cannot copy all bytes\n");
+		return -EPERM;
+	}
+
+	if (cons) {
+		cons->write(cons, dest, count);
+	} else {
+		dest[count] = '\0';
+		dev_info(dev, "%s\n", dest);
+	}
+
+	kfree(dest);
+
+	*pos += count;
+	return count;
+}
+
 static int __init serco_init(void)
 {
+	int ret;
+
+	ret = misc_register(&serco_miscdev);
+	if (ret)
+		return ret;
+
 	/* look for the serial console driver */
 	for_each_console(cons)
 		if (strstarts(cons->name, "ttyS"))
 			break;
 
 	if (!cons)
-		pr_warn("Could not find a serial console\n");
+		dev_warn(serco_miscdev.this_device, "Could not find a serial console\n");
 
-	return misc_register(&serco_miscdev);
+	return 0;
+
 }
 
 static void __exit serco_exit(void)
